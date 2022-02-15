@@ -1,0 +1,111 @@
+# Clean up new tables
+DROP TABLE car, tyre, size, loadindex, type, tyrespec, fittedto;
+
+# Create Multiple Tables to normalise the data
+CREATE TABLE car (carId INTEGER NOT NULL AUTO_INCREMENT primary key ,
+                  Brand VARCHAR(255),
+                  Model varchar(255),
+                  Submodel varchar(255));
+
+ALTER TABLE car ADD CONSTRAINT unique_cars UNIQUE (Brand, Model, Submodel);
+
+CREATE TABLE size (sizeID INTEGER NOT NULL AUTO_INCREMENT primary key,
+                   size CHAR(11));
+
+CREATE TABLE loadindex (loadindexID INTEGER NOT NULL AUTO_INCREMENT primary key,
+                        loadindex TINYINT);
+
+CREATE TABLE type (typeID INTEGER NOT NULL AUTO_INCREMENT primary key,
+                   name VARCHAR(255));
+
+CREATE TABLE tyre (tyreID INTEGER NOT NULL AUTO_INCREMENT primary key,
+                   Tyre_Brand varchar(255),
+                   SerialNo VARCHAR(255));
+
+CREATE TABLE tyrespec (tyrespecID INTEGER NOT NULL AUTO_INCREMENT primary key,
+                       tyreID INTEGER NOT NULL,
+                       typeId INTEGER NOT NULL,
+                       sizeId INTEGER NOT NULL,
+                       loadindexID INTEGER);
+
+CREATE TABLE fittedto (fittedtoId INTEGER NOT NULL AUTO_INCREMENT primary key,
+                       CarID INTEGER NOT NULL,
+                       tyrespecID INTEGER NOT NULL,
+                       SellingPrice INTEGER,
+                       OriginalPrice INTEGER,
+                       Rating FLOAT);
+
+# Insert Individual Value for Demonstration
+#INSERT INTO car (Brand, Model, Submodel) VALUES ('Maruti', 'Swift Dzire', 'LDI (Diesel)');
+
+# Insert Values into new tables by querying single, un-normalised 'BigTable'
+INSERT INTO car (Brand, Model, Submodel) SELECT DISTINCT Brand, Model, Submodel from tyres;
+
+INSERT INTO tyre (Tyre_Brand, SerialNo) SELECT DISTINCT Tyre_Brand, SerialNo from tyres;
+
+INSERT INTO size (size) SELECT DISTINCT size from tyres;
+
+INSERT INTO loadindex (loadindex) SELECT DISTINCT loadindex from tyres;
+
+INSERT INTO type (name) SELECT DISTINCT type from tyres;
+
+INSERT INTO tyrespec (sizeId, loadindexID, typeId, tyreID) SELECT distinct size.sizeID, loadindex.loadindexID, type.typeId, tyre.tyreID
+from   size, loadindex, type, tyre, tyres
+where size.size = tyres.size
+AND    loadindex.loadindex = tyres.loadindex
+AND    type.name = tyres.type
+AND    tyre.SerialNo = tyres.SerialNo
+AND    tyre.Tyre_Brand = tyres.Tyre_Brand;
+
+INSERT INTO fittedto (CarID, tyrespecID, SellingPrice, OriginalPrice, Rating)
+SELECT car.carID, tyrespec.tyrespecID, tyres.SellingPrice, tyres.OriginalPrice, tyres.Rating
+FROM tyres, car, tyrespec, loadindex, size, type, tyre
+WHERE tyres.Brand = car.Brand
+AND   tyres.Model = car.Model
+AND   tyres.Submodel = car.Submodel
+AND   tyres.Tyre_Brand = tyre.Tyre_Brand
+AND   tyres.SerialNo = tyre.SerialNo
+AND   tyres.Type = type.name
+AND   tyres.size = size.size
+AND   tyres.loadindex = loadindex.loadindex
+AND   tyrespec.tyreID = tyre.tyreID
+AND   tyrespec.loadindexID = loadindex.loadIndexId
+AND   tyrespec.typeId = type.typeID
+AND   tyrespec.sizeId = size.sizeId;
+
+# Need to add fitted to table
+select car.*, tyre.* from car,tyre, tyrespec;
+
+select DISTINCT Tyre_Brand, SerialNo, Type, LoadIndex, Size from tyres order by Tyre_Brand;
+
+#Example queries
+# This should recreate the original 'Big Table' data from the normalised tables
+SELECT car.Brand, car.Model, car.Submodel, tyre.Tyre_Brand, tyre.SerialNo, type.name as type, loadindex.loadindex, size.size, fittedto.SellingPrice, fittedto.OriginalPrice, fittedto.Rating
+FROM car, tyre, type, loadindex, size, fittedto, tyrespec
+WHERE car.carID = fittedto.CarID
+AND fittedto.tyrespecID = tyrespec.tyrespecID
+AND tyre.tyreID = tyrespec.tyreID
+AND size.sizeID = tyrespec.sizeID
+AND type.typeID = tyrespec.typeId
+AND loadindex.loadindexID = tyrespec.loadIndexId;
+
+# Lab sheet Q3
+select * from tyrespec;
+
+select Tyre_Brand, SerialNo, size.Size
+from tyre, tyrespec, fittedto, size
+where fittedto.rating >=4
+and tyrespec.tyreID = tyre.tyreID
+and fittedto.tyrespecID = tyrespec.tyrespecID
+and size.sizeID = tyrespec.sizeId
+
+SELECT * FROM tyres;
+
+select * from tyres where originalprice <> sellingprice
+
+SELECT Size, Count(Model) as Frequency from tyres group by tyres.Size order by Frequency desc
+
+# Outstanding questions
+# Does same tyre cost the same fitted to a different car?
+# Does the same tyre fitted to a different car get a different rating?
+
